@@ -93,7 +93,7 @@ class OR : public Gate
         }
     private :
         Gate *component[2] ;
-} ;
+};
 
 class XOR : public Gate
 {
@@ -123,27 +123,80 @@ class XOR : public Gate
         }
     private :
         Gate *component[5] ;
-} ;
-/* Reference example
-class XNOR : public Gate
+};
+
+class Adder
 {
     public :
-        XNOR() : Gate()
-        {
-            component[0] = new NOT ;
-            component[1] = new XOR ;
+        virtual void setValue(bool, int) = 0 ;
+        virtual void setValue(Gate *, int) = 0 ;
+        virtual Gate *sum() = 0 ;
+        virtual Gate *carryOut() = 0 ;
+};
+
+class OneBitHalfAdder : public Adder
+{
+    public :
+        OneBitHalfAdder() {
+            component[0] = new XOR; 
+            component[1] = new AND; 
         }
-        virtual bool output()
-        {
-            component[1] -> input[0] = this -> input[0] ;
-            component[1] -> input[1] = this -> input[1] ;
-            component[0] -> input[0] = component[1] ;
-            return component[0] -> output() ;
+
+        virtual void setValue(bool val, int pin) {
+          component[0] ->setValue(val,pin); 
+          component[1]->setValue(val,pin); 
+        }
+        virtual void setValue(Gate *gate, int pin) {
+            component[0]->setValue(gate, pin); 
+            component[1]->setValue(gate, pin); 
+        }
+        virtual Gate *sum() {
+            return component[0]; 
+        }
+        virtual Gate *carryOut() {
+            return component[1]; 
         }
     private :
         Gate *component[2] ;
-} ;
-*/
+};
+
+class OneBitFullAdder : public Adder
+{
+    public :
+        OneBitFullAdder() {
+            a[0] = new OneBitHalfAdder;
+            a[1] = new OneBitHalfAdder; 
+            carry = new OR; 
+        }
+        virtual void setValue(bool val, int pin) {
+            if (pin < 2) {
+                a[0]->setValue(val, pin);
+            } else {
+                a[1]->setValue(val, 1);
+            }
+            a[1]->setValue(a[0]->sum(), 0); 
+        }
+        virtual void setValue(Gate *gate, int pin) {
+             if (pin < 2) {
+                a[0]->setValue(gate, pin);
+            } else {
+                a[1]->setValue(gate, 1);
+            }
+             a[1]->setValue(a[0]->sum(), 0); 
+        }
+        virtual Gate *sum() {
+            return a[1]->sum(); 
+        }
+        virtual Gate *carryOut() {
+            carry->setValue(a[0]->carryOut(), 0); 
+            carry->setValue(a[1]->carryOut(), 1); 
+            return carry; 
+        }
+    private :
+        Adder *a[2] ;
+        Gate *carry ;
+};
+
 
 int main(){
 
@@ -164,8 +217,18 @@ int main(){
     xorGate.setValue(true, 1);
     std::cout << "XOR Gate: " << xorGate.output() << std::endl;
 
-    // notGate.setValue(true, 0);
-    // std::cout << "NOT Gate: " << notGate.output() << std::endl;
+    OneBitHalfAdder halfAdder;
+    halfAdder.setValue(true, 0);
+    halfAdder.setValue(false, 1);
+    std::cout << "Half Adder Sum: " << halfAdder.sum()->output() << std::endl;
+    std::cout << "Half Adder Carry Out: " << halfAdder.carryOut()->output() << std::endl;
+
+    OneBitFullAdder fullAdder;
+    fullAdder.setValue(true, 0);
+    fullAdder.setValue(false, 1);
+    fullAdder.setValue(true, 2); // Set the carry-in
+    std::cout << "Full Adder Sum: " << fullAdder.sum()->output() << std::endl;
+    std::cout << "Full Adder Carry Out: " << fullAdder.carryOut()->output() << std::endl;
 
     return 0; 
 }
